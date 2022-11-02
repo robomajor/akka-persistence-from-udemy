@@ -2,7 +2,7 @@ version: '2'
 
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:13.4-buster
     container_name: postgres
     environment:
       - "TZ=Europe/Amsterdam"

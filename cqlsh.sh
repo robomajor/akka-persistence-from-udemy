@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "alias docker='winpty docker'" >> ~/.bash_profile
 echo "==================     Help for cqlsh    ========================="
 echo "DESCRIBE tables            : Prints all tables in the current keyspace"
 echo "DESCRIBE keyspaces         : Prints all keyspaces in the current cluster"

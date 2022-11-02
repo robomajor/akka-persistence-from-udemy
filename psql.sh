@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "alias docker='winpty docker'" >> ~/.bash_profile
 echo "==================     Help for psql   ========================="
 echo "\\dt		: Describe the current database"
 echo "\\t [table]	: Describe a table"
