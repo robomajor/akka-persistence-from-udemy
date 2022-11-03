@@ -11,9 +11,13 @@ object PersistentActors extends App {
 
   // COMMANDS
   case class Invoice(recipient: String, date: Date, amount: Int)
+  case class InvoiceBulk(invoices: List[Invoice])
 
   // EVENTS
   case class InvoiceRecorded(id: Int, recipient: String, date: Date, amount: Int)
+
+  // SPECIAL MESSAGES
+  case object Shutdown
 
   class Accountant extends PersistentActor with ActorLogging {
     var latestInvoiceId = 0
@@ -35,6 +39,19 @@ object PersistentActors extends App {
           totalAmount += amount
           log.info(s"Persisted $e as invoice #${e.id}, for total amount $totalAmount")
         }
+      case InvoiceBulk(invoices) =>
+        val invoiceIds = latestInvoiceId to (latestInvoiceId + invoices.size)
+        val events = invoices.zip(invoiceIds).map { pair =>
+          val id = pair._2
+          val invoice = pair._1
+          InvoiceRecorded(id, invoice.recipient, invoice.date, invoice.amount)
+        }
+        persistAll(events) { e =>
+          latestInvoiceId += 1
+          totalAmount += e.amount
+          log.info(s"Persisted $e as invoice #${e.id}, for total amount $totalAmount")
+        }
+      case Shutdown => context.stop(self)
       case "print" => log.info(s"Latest invoice id: $latestInvoiceId, total amount: $totalAmount")
     }
 
@@ -44,11 +61,24 @@ object PersistentActors extends App {
         latestInvoiceId = id
         totalAmount += amount
     }
+
+    // this method is called if persisting failed - actor will be stopped
+    override def onPersistFailure(cause: Throwable, event: Any, seqNr: Long): Unit = {
+      log.error(s"Fail to persist $event because of $cause")
+      super.onPersistFailure(cause, event, seqNr)
+    } // best practise - start the actor again after a while (use backoff supervisor)
+
+    // called if the journal fails to persist the event - actor is resumed
+    override def onPersistRejected(cause: Throwable, event: Any, seqNr: Long): Unit = {
+      log.error(s"Persist rejected for $event because of $cause")
+      super.onPersistRejected(cause, event, seqNr)
+    }
   }
 
   val simpleAccountant = system.actorOf(Props[Accountant], "simpleAccountant")
 
-  for (i <- 1 to 10) {
-    simpleAccountant ! Invoice("The Sofa Company", new Date, i * 1000)
-  }
+  val newInvoices = for (i <- 1 to 5) yield Invoice("The Awesome Sofa Company", new Date, i * 2000)
+//  simpleAccountant ! InvoiceBulk(newInvoices.toList)
+
+  // NEVER EVER CALL persist OR persistAll FROM FUTURES
 }
