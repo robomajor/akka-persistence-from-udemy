@@ -88,4 +88,12 @@ object Snapshots extends App {
 //    chat ! ReceivedMessage(s"Akka rocks $i")
 //    chat ! SentMessage(s"You fuckin' hippie $i")
 //  }
+
+  /*
+      pattern:
+      - after each persist, maybe save a snapshot (logic is up to you)
+      - if you save a snapshot, handle the SnapshotOffer message in receiveRecover
+      - (optional, but best practice) handle SaveSnapshotSuccess and SaveSnapshotFailure in receiveCommand
+      - profit from the extra speed!!!
+     */
 }
