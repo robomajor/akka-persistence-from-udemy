@@ -1,7 +1,7 @@
 package part2_event_sourcing
 
 import akka.actor.{ActorLogging, ActorSystem, Props}
-import akka.persistence.{PersistentActor, SnapshotOffer}
+import akka.persistence.{PersistentActor, SaveSnapshotFailure, SaveSnapshotSuccess, SnapshotOffer}
 
 import scala.collection.mutable
 
@@ -35,26 +35,33 @@ object Snapshots extends App {
           log.info(s"Received message: $contents")
           maybeReplaceMessage(contact, contents)
           currentMessageId += 1
+          maybeCheckpoint()
         }
       case SentMessage(contents) =>
         persist(SentMessageRecord(currentMessageId, contents)) { e =>
           log.info(s"Sent message: $contents")
           maybeReplaceMessage(owner, contents)
           currentMessageId += 1
+          maybeCheckpoint()
         }
+      case "print" =>
+        log.info(s"Most recent messages: $lastMessages")
+      // snapshot-related messages
+      case SaveSnapshotSuccess(metadata) =>
+        log.info(s"saving snapshot succeeded: $metadata")
+      case SaveSnapshotFailure(metadata, reason) =>
+        log.warning(s"saving snapshot $metadata failed because of $reason")
     }
 
     override def receiveRecover: Receive = {
       case ReceivedMessageRecord(id, contents) =>
-        log.info(s"Recovered received messages with id $id: $contents")
+        log.info(s"Recovered received message $id: $contents")
         maybeReplaceMessage(contact, contents)
         currentMessageId = id
-        maybeCheckpoint()
       case SentMessageRecord(id, contents) =>
-        log.info(s"Recovered sent messages with id $id: $contents")
+        log.info(s"Recovered sent message $id: $contents")
         maybeReplaceMessage(owner, contents)
         currentMessageId = id
-        maybeCheckpoint()
       case SnapshotOffer(metadata, contents) =>
         log.info(s"Recovered snapshot: $metadata")
         contents.asInstanceOf[mutable.Queue[(String, String)]].foreach(lastMessages.enqueue(_))
@@ -69,7 +76,7 @@ object Snapshots extends App {
       commandsWithoutCheckpoint += 1
       if (commandsWithoutCheckpoint >= MAX_MESSAGES) {
         log.info("Saving checkpoint")
-        saveSnapshot(lastMessages)
+        saveSnapshot(lastMessages) // asynchronous operation
         commandsWithoutCheckpoint = 0
       }
     }
@@ -77,7 +84,7 @@ object Snapshots extends App {
 
   val chat = system.actorOf(Chat.props("Duppa", "Jappa"))
 
-//  for (i <- 1 to 100000) {
+//  for (i <- 1 to 10000) {
 //    chat ! ReceivedMessage(s"Akka rocks $i")
 //    chat ! SentMessage(s"You fuckin' hippie $i")
 //  }
