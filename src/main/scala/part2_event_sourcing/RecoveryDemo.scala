@@ -42,6 +42,7 @@ object RecoveryDemo extends App {
       super.onRecoveryFailure(cause, event)
     }
 
+
 //    override def recovery: Recovery = Recovery(toSequenceNr = 100)
 //    override def recovery: Recovery = Recovery(fromSnapshot = SnapshotSelectionCriteria.Latest
 //    override def recovery: Recovery = Recovery.none
